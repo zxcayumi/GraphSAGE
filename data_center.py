@@ -65,6 +65,7 @@ class data_center:
         
         return result
 
+# for class test
 if __name__ == '__main__':
     #dc = data_center('cora')
     # print(dc.data.features,dc.data.features.shape)

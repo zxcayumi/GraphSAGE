@@ -97,6 +97,7 @@ class GraphSage(nn.Module):
         
         return prediction
 
+# for class test
 if __name__ == '__main__':
     # features = torch.Tensor(torch.randn(5,128)).to('cuda')
     # model = Classification(128,5).to('cuda')
