@@ -131,3 +131,6 @@ dmypy.json
 # custom
 .vscode/
 __pycache__
+data/reddit/reddit_graph.npz
+data/reddit/reddit_data.npz
+data/citeseer/README
