@@ -1,4 +1,5 @@
 from numpy.core.defchararray import mod
+from numpy.core.fromnumeric import reshape
 import models
 import data_center as context
 import numpy as np
@@ -9,8 +10,8 @@ import argparse
 import util
 
 parser = argparse.ArgumentParser(description='pytorch version of GraphSAGE by Xuechen Zhao')
-parser.add_argument('--dataSet', type=str, default='cora')
-parser.add_argument('--epoch', type=int, default=6)
+parser.add_argument('--dataSet', type=str, default='citeseer')
+parser.add_argument('--epoch', type=int, default=10)
 parser.add_argument('--epochSize', type=int, default=50)
 parser.add_argument('--batchSize', type=int, default=16)
 parser.add_argument('--device', type=str, default='cuda')
@@ -28,10 +29,14 @@ model = models.GraphSage(input_dim, output_dim, orders).to(util.device)
 criterion = nn.CrossEntropyLoss().to(util.device)
 optimizer = optim.SGD(model.parameters(), lr=0.1)
 
+#generate environmental embeding from the train nodes
+env_embeding = torch.from_numpy(dc.trains.mean(0)).to(util.device)
+
 def get_samples(type = context.set_type.trains):
     sample_nodes_index, sample_nodes_feature = dc.sampling(args.batchSize, sample_num, from_set=type)
 
     #features: contains n order neighbors
+    #batch nodes' feafure with their n order neighbors, e.g. [array(), array(), array()]
     sample_nodes_feature = [torch.from_numpy(samples).to(util.device) for samples in sample_nodes_feature]
 
     #labels: not contains neighbors
@@ -42,11 +47,13 @@ def get_samples(type = context.set_type.trains):
 
 def train():
     model.train()
+
+    acc_tests = []
     for e in range(1,args.epoch+1):
         for i in range(args.epochSize):
             sample_nodes_labels, sample_nodes_feature = get_samples()
 
-            prediction = model(sample_nodes_feature)
+            prediction = model(sample_nodes_feature, env_embeding)
             loss = criterion(prediction, sample_nodes_labels)
             optimizer.zero_grad()
             loss.backward()
@@ -59,10 +66,15 @@ def train():
                 e, i, lossy, accuracy))
         
         eval(context.set_type.vals)
-        eval(context.set_type.tests)
+        acc_tests.append(eval(context.set_type.tests))
+    
+    acc_tests.sort(reverse=True)
+    print('---------------------------')
+    print('average accuracy:{:.4f}'.format(np.mean(acc_tests[0:3])))
 
 def eval(type = context.set_type.vals):
     model.eval()
+    accuracy = .0
     with torch.no_grad():
         sample_nodes_labels,sample_nodes_feature = get_samples(type)
 
@@ -70,6 +82,7 @@ def eval(type = context.set_type.vals):
         corrects_index = prediction.max(1)[1]
         accuracy = torch.eq(corrects_index, sample_nodes_labels).float().mean().item()
         print('{:5}==>accuracy:{:.4f}'.format(type.name, accuracy))
+    return accuracy
 
 if __name__ == '__main__':
     train()
