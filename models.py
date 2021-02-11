@@ -2,16 +2,13 @@ from numpy.core.defchararray import mod
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
-import numpy as np
-from torch.nn.modules import activation
 import util
 
 class Classification(nn.Module):
-    def __init__(self, emb_dim, class_dim):
+    def __init__(self, input_dim, output_dim):
         super(Classification, self).__init__()
-        self.emb_dim = emb_dim
-        self.class_size = class_dim
-        self.fcl = nn.Linear(emb_dim,class_dim)
+        self.fcl = nn.Linear(input_dim,output_dim)
+        self.sigmoid = func.sigmoid
 
         self._init_params()
 
@@ -20,9 +17,12 @@ class Classification(nn.Module):
             if len(param.size()) == 2:
                 nn.init.xavier_uniform_(param)
 
-    def forward(self,embedings):
+    def forward(self, embedings, activation = False):
         embedings = self.fcl(embedings)
         #logists = torch.log_softmax(embedings,dim=1)
+        if activation:
+            embedings = self.sigmoid(embedings)
+
         return embedings
 
 class SageGCN(nn.Module):
@@ -67,6 +67,7 @@ class GraphSage(nn.Module):
     def __init__(self, input_dim, output_dim, orders):
         '''
         nodes_feature: batch nodes' feafure with their n order neighbors, e.g. [array(), array(), array()]
+        orders: the layers of neighors
         '''
         self._orders = orders
         super(GraphSage,self).__init__()
@@ -74,8 +75,9 @@ class GraphSage(nn.Module):
         for i in range(1, orders+1):
             self.gcnList.append(SageGCN(input_dim//i, input_dim//(2*i)))
         self.cls_model = Classification(input_dim//(2*orders), output_dim)
+        self.env_model = Classification(input_dim, 2) #env impact factors
 
-    def forward(self, node_features):
+    def forward(self, node_features, env_features = None):
         # input_dim = len(node_features[0][0]) 
         # orders = len(node_features) - 1 # n order neighbors
         # self.cls_model = Classification(1433, self.output_dim)#.to(util.device)
@@ -93,7 +95,12 @@ class GraphSage(nn.Module):
                 neighbor_features = util.trans_view(node_features[i+1], (len(cur_features), -1, len(cur_features[0])))
                 new_features.append(self.gcnList[order](cur_features, neighbor_features))
             node_features = new_features
-        prediction = self.cls_model(node_features[0])
+        
+        features = node_features[0]
+        if env_features is not None: # if environmental impact is added
+            env_factors = self.env_model(env_features.reshape(1,-1), activation=True)
+            features = env_factors[0][0] * features + env_factors[0][1]
+        prediction = self.cls_model(features)
         
         return prediction
 
@@ -104,22 +111,31 @@ if __name__ == '__main__':
     # prediction = model(features)
     # print(prediction)
 
-    currents = torch.Tensor([
+    # currents = torch.Tensor([
+    #     [0.1,0.1,0.1],
+    #     [0.1,0.1,0.1]
+    # ])
+    # neighbors = torch.Tensor([
+    #     [
+    #         [0.2,0.2,0.2],
+    #         [0.1,0.2,0.1],
+    #         [0.3,0.2,0.0]
+    #     ],
+    #     [
+    #         [0.2,0.2,0.2],
+    #         [0.1,0.2,0.1],
+    #         [0.3,0.2,0.0]
+    #     ]
+    # ])
+    # model = SageGCN(3,2,2) #输入：3   输出：2   邻居阶数：2
+    # result = model(currents,neighbors)
+    # print(result)
+
+    t = torch.Tensor([0.2,0.3,0.4])
+    y = torch.Tensor([
         [0.1,0.1,0.1],
         [0.1,0.1,0.1]
     ])
-    neighbors = torch.Tensor([
-        [
-            [0.2,0.2,0.2],
-            [0.1,0.2,0.1],
-            [0.3,0.2,0.0]
-        ],
-        [
-            [0.2,0.2,0.2],
-            [0.1,0.2,0.1],
-            [0.3,0.2,0.0]
-        ]
-    ])
-    model = SageGCN(3,2)
-    result = model(currents,neighbors)
-    print(result)
+    print(y * t[0] + t[1])
+
+    
