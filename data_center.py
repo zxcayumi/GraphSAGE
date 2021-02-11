@@ -21,7 +21,7 @@ class data_center:
         self.trains_indexs = self.rand_data_index[self.data.count//3 + self.data.count//6 : ]
     
     @property
-    def trans(self):
+    def trains(self):
         'training set'
         return self.data.features[self.trains_indexs]
 
