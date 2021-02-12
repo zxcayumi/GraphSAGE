@@ -11,7 +11,7 @@ import util
 
 parser = argparse.ArgumentParser(description='pytorch version of GraphSAGE by Xuechen Zhao')
 parser.add_argument('--dataSet', type=str, default='cora')
-parser.add_argument('--epoch', type=int, default=10)
+parser.add_argument('--epoch', type=int, default=50)
 #parser.add_argument('--epochSize', type=int, default=50)
 parser.add_argument('--batchSize', type=int, default=16)
 parser.add_argument('--device', type=str, default='cuda')
@@ -79,11 +79,18 @@ def eval(type = context.set_type.vals):
     model.eval()
     accuracy = .0
     with torch.no_grad():
-        sample_nodes_labels,sample_nodes_feature = get_samples(type)
+        accs = []
+        ds = getattr(dc,type.name)
+        for i in range(len(ds)//args.batchSize + 1):
+            sample_nodes_labels,sample_nodes_feature = get_samples(type)
 
-        prediction = model(sample_nodes_feature)
-        corrects_index = prediction.max(1)[1]
-        accuracy = torch.eq(corrects_index, sample_nodes_labels).float().mean().item()
+            prediction = model(sample_nodes_feature)
+            corrects_index = prediction.max(1)[1]
+            accuracy = torch.eq(corrects_index, sample_nodes_labels).float().mean().item()
+            accs.append(accuracy)
+        
+        accs = np.asarray(accs)
+        accuracy = accs.mean()
         print('{:5}==>accuracy:{:.4f}'.format(type.name, accuracy))
     return accuracy
 
