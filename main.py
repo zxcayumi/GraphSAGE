@@ -10,9 +10,9 @@ import argparse
 import util
 
 parser = argparse.ArgumentParser(description='pytorch version of GraphSAGE by Xuechen Zhao')
-parser.add_argument('--dataSet', type=str, default='citeseer')
+parser.add_argument('--dataSet', type=str, default='cora')
 parser.add_argument('--epoch', type=int, default=10)
-parser.add_argument('--epochSize', type=int, default=50)
+#parser.add_argument('--epochSize', type=int, default=50)
 parser.add_argument('--batchSize', type=int, default=16)
 parser.add_argument('--device', type=str, default='cuda')
 args = parser.parse_args()
@@ -31,6 +31,8 @@ optimizer = optim.SGD(model.parameters(), lr=0.1)
 
 #generate environmental embeding from the train nodes
 env_embeding = torch.from_numpy(dc.trains.mean(0)).to(util.device)
+#torch.from_numpy(dc.data.features.mean(0)).to(util.device)
+#torch.from_numpy(dc.trains.mean(0)).to(util.device)
 
 def get_samples(type = context.set_type.trains):
     sample_nodes_index, sample_nodes_feature = dc.sampling(args.batchSize, sample_num, from_set=type)
@@ -50,7 +52,7 @@ def train():
 
     acc_tests = []
     for e in range(1,args.epoch+1):
-        for i in range(args.epochSize):
+        for i in range(len(dc.trains)//args.batchSize + 1): #(args.epochSize):
             sample_nodes_labels, sample_nodes_feature = get_samples()
 
             prediction = model(sample_nodes_feature, env_embeding)
@@ -70,6 +72,7 @@ def train():
     
     acc_tests.sort(reverse=True)
     print('---------------------------')
+    print(acc_tests)
     print('average accuracy:{:.4f}'.format(np.mean(acc_tests[0:3])))
 
 def eval(type = context.set_type.vals):

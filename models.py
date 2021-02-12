@@ -75,7 +75,7 @@ class GraphSage(nn.Module):
         for i in range(1, orders+1):
             self.gcnList.append(SageGCN(input_dim//i, input_dim//(2*i)))
         self.cls_model = Classification(input_dim//(2*orders), output_dim)
-        self.env_model = Classification(input_dim, 2) #env impact factors
+        self.env_model = Classification(input_dim*2, 2) #env impact factors
 
     def forward(self, node_features, env_features = None):
         # input_dim = len(node_features[0][0]) 
@@ -87,6 +87,8 @@ class GraphSage(nn.Module):
         #     gcnList1.append(SageGCN(input_dim//i, input_dim//(2*i)).to(util.device))
         # self.gcnList = nn.ModuleList(gcnList1)
         # cls_model = Classification(input_dim//(2*orders), self.output_dim)#.to(util.device)
+        
+        loc_features = node_features[0].mean(0).reshape(1,-1)
 
         for order in range(self._orders):
             new_features = []
@@ -98,6 +100,8 @@ class GraphSage(nn.Module):
         
         features = node_features[0]
         if env_features is not None: # if environmental impact is added
+            env_features = env_features.reshape(1,-1)
+            env_features = torch.cat((env_features, loc_features), 1)
             env_factors = self.env_model(env_features.reshape(1,-1), activation=True)
             features = env_factors[0][0] * features + env_factors[0][1]
         prediction = self.cls_model(features)
